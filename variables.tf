@@ -1,4 +1,4 @@
 variable "project" {}
-variable VPCs {}
+variable "VPCs" {}
 variable "region" {}
 variable "zone" {}
