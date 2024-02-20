@@ -28,7 +28,7 @@ locals {
   ])
 }
 
-resource "google_compute_network" "networks" {
+resource "google_compute_network" {
   for_each = { for vpc in var.VPCs: vpc.name => vpc }
 
   name = each.value.name
