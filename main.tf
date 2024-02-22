@@ -54,3 +54,51 @@ resource "google_compute_route" "routes" {
   dest_range = each.value.dest_range
   next_hop_gateway = each.value.next_hop_gateway
 }
+
+resource "google_compute_firewall" "allow" {
+  name = var.allowed_firewall_name
+  network = google_compute_network.networks[var.VPCs[0].name].id
+
+  allow {
+    protocol = var.protocol
+    ports = [var.allowed_port]
+  }
+
+  source_ranges = [var.allowed_source_range]
+  priority = var.priority
+}
+
+resource "google_compute_firewall" "deny" {
+  name = var.denied_firewall_name
+  network = google_compute_network.networks[var.VPCs[0].name].id
+
+  deny {
+    protocol = var.protocol
+    ports = [var.denied_port]
+  }
+
+  source_ranges = [var.allowed_source_range]
+  priority = var.priority
+}
+
+resource "google_compute_instance" "instance" {
+  name = var.network_name
+  machine_type = var.machine_type
+  zone = var.zone
+
+  boot_disk {
+    initialize_params {
+      image = var.boot_disk_image
+      type  = var.boot_disk_type
+      size = var.boot_disk_size
+    }
+  }
+
+  network_interface {
+    network = google_compute_network.networks[var.VPCs[0].name].id
+    subnetwork = google_compute_subnetwork.subnets[0].id
+    access_config {
+      
+    }
+  }
+}
