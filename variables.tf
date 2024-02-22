@@ -2,3 +2,15 @@ variable "project" {}
 variable "VPCs" {}
 variable "region" {}
 variable "zone" {}
+variable "allowed_firewall_name" {}
+variable "protocol" {}
+variable "allowed_port" {}
+variable "allowed_source_range" {}
+variable "denied_firewall_name" {}
+variable "denied_port" {}
+variable "priority" {}
+variable "network_name" {}
+variable "machine_type" {}
+variable "boot_disk_image" {}
+variable "boot_disk_type" {}
+variable "boot_disk_size" {}
