@@ -12,6 +12,7 @@ locals {
         subnet_name = subnet.name
         subnet_region = subnet.region
         subnet_cidr = subnet.ip_cidr_range
+        private_ip_google_access = subnet.private_ip_google_access
       }
     ]
   ])
@@ -44,6 +45,7 @@ resource "google_compute_subnetwork" "subnets" {
   name    = each.value.subnet_name
   region  = each.value.subnet_region
   ip_cidr_range = each.value.subnet_cidr
+  private_ip_google_access = each.value.private_ip_google_access
 }
 
 resource "google_compute_route" "routes" {
@@ -101,4 +103,20 @@ resource "google_compute_instance" "instance" {
       
     }
   }
+}
+
+resource "google_compute_global_address" "default" {
+  name = "global-psconnect-ip"
+  address_type = "INTERNAL"
+  purpose = "PRIVATE_SERVICE_CONNECT"
+  network = google_compute_network.networks[var.VPCs[0].name].id
+  address = "10.3.0.5"
+}
+
+resource "google_compute_global_forwarding_rule" "default" {
+  name = "globalrule"
+  target = "all-apis"
+  network = google_compute_network.networks[var.VPCs[0].name].id
+  ip_address = google_compute_global_address.default.id
+  load_balancing_scheme = ""
 }
