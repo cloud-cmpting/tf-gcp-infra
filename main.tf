@@ -123,7 +123,7 @@ resource "random_id" "db_name_suffix" {
   byte_length = 4
 }
 
-resource "google_sql_database_instance" "database" {
+resource "google_sql_database_instance" "database_instance" {
   name = "private-instance-${random_id.db_name_suffix.hex}"
   database_version = "MYSQL_5_7"
   region = var.region
@@ -135,7 +135,7 @@ resource "google_sql_database_instance" "database" {
     tier = "db-f1-micro"
     availability_type = "REGIONAL"
     disk_type = "pd-ssd"
-    disk_size = 100
+    disk_size = 10
 
     ip_configuration {
       ipv4_enabled = false
@@ -148,4 +148,9 @@ resource "google_sql_database_instance" "database" {
       binary_log_enabled = true
     }
   }
+}
+
+resource "google_sql_database" "database" {
+  name = "webapp"
+  instance = google_sql_database_instance.database_instance.name
 }
