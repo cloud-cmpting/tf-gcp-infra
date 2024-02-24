@@ -154,3 +154,15 @@ resource "google_sql_database" "database" {
   name = "webapp"
   instance = google_sql_database_instance.database_instance.name
 }
+
+resource "random_password" "password" {
+  length           = 16
+  special          = true
+  override_special = "!#$%&*()-_=+[]{}<>:?"
+}
+
+resource "google_sql_user" "user" {
+  name     = "webapp"
+  instance = google_sql_database_instance.database_instance.name
+  password = random_password.password.result
+}
