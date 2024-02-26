@@ -112,15 +112,17 @@ resource "google_compute_instance" "instance" {
 
   metadata_startup_script = <<-SCRIPT
     #!/bin/bash
-    touch /opt/app/.env
 
-    echo "MYSQL_HOST=${google_sql_database_instance.database_instance.private_ip_address}" >> /opt/app/.env
-    echo "MYSQL_USER=${google_sql_user.user.name}" >> /opt/app/.env
-    echo "MYSQL_PASSWORD=${google_sql_user.user.password}" >> /opt/app/.env
-    echo "MYSQL_DATABASE=${google_sql_database.database.name}" >> /opt/app/.env
+    echo "Starting startup script..."
 
-    sudo systemctl start webapp
-    sudo systemctl enable webapp
+    sudo sh -c  'cat << EOF > /opt/app/.env
+    MYSQL_HOST=${google_sql_database_instance.database_instance.private_ip_address}
+    MYSQL_USER=${google_sql_user.user.name}
+    MYSQL_PASSWORD=${google_sql_user.user.password}
+    MYSQL_DATABASE=${google_sql_database.database.name}
+    EOF'
+
+    echo "Startup script executed successfully!"
   SCRIPT
 }
 
