@@ -49,3 +49,9 @@ variable "VPCs" {}
 variable "password_length" {}
 variable "use_special_chars" {}
 variable "use_these_special_chars" {}
+
+// DNS properties
+variable "domain" {}
+variable "dns_zone" {}
+variable "record_type" {}
+variable "record_ttl" {}

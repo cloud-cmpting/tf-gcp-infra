@@ -187,3 +187,14 @@ resource "google_sql_user" "user" {
   instance = google_sql_database_instance.database_instance.name
   password = random_password.password.result
 }
+
+resource "google_dns_record_set" "a-record" {
+  name   = var.domain
+  type    = var.record_type
+  ttl     = var.record_ttl
+  managed_zone = var.dns_zone
+
+  rrdatas = [google_compute_instance.instance.network_interface[0].access_config[0].nat_ip]
+
+  depends_on = [google_compute_instance.instance]
+}
