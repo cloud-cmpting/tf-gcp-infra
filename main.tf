@@ -83,49 +83,6 @@ resource "google_compute_firewall" "deny" {
   priority      = var.priority
 }
 
-resource "google_compute_instance" "instance" {
-  name         = var.instance
-  machine_type = var.machine_type
-  zone         = var.zone
-
-  boot_disk {
-    initialize_params {
-      image = var.boot_disk_image
-      type  = var.boot_disk_type
-      size  = var.boot_disk_size
-    }
-  }
-
-  network_interface {
-    network    = google_compute_network.networks[var.VPCs[0].name].id
-    subnetwork = google_compute_subnetwork.subnets[0].id
-    access_config {
-
-    }
-  }
-
-  depends_on = [
-    google_sql_database_instance.database_instance,
-    google_sql_database.database,
-    google_sql_user.user
-  ]
-
-  metadata_startup_script = <<-SCRIPT
-    #!/bin/bash
-
-    echo "Starting startup script..."
-
-    sudo sh -c  'cat << EOF > /opt/app/.env
-    MYSQL_HOST=${google_sql_database_instance.database_instance.private_ip_address}
-    MYSQL_USER=${google_sql_user.user.name}
-    MYSQL_PASSWORD=${google_sql_user.user.password}
-    MYSQL_DATABASE=${google_sql_database.database.name}
-    EOF'
-
-    echo "Startup script executed successfully!"
-  SCRIPT
-}
-
 resource "google_compute_global_address" "default" {
   name          = var.google_compute_global_address_name
   address_type  = var.google_compute_global_address_type
@@ -186,6 +143,78 @@ resource "google_sql_user" "user" {
   name     = var.database_user
   instance = google_sql_database_instance.database_instance.name
   password = random_password.password.result
+}
+
+resource "google_service_account" "vm_service_account" {
+  account_id   = var.account_id
+  display_name = var.display_name
+}
+
+resource "google_project_iam_binding" "logging_admin_binding" {
+  project = var.project
+  role    = "roles/logging.admin"
+  members = [
+    "serviceAccount:${google_service_account.vm_service_account.email}",
+  ]
+}
+
+resource "google_project_iam_binding" "monitoring_metric_writer_binding" {
+  project = var.project
+  role    = "roles/monitoring.metricWriter"
+  members = [
+    "serviceAccount:${google_service_account.vm_service_account.email}",
+  ]
+}
+
+resource "google_compute_instance" "instance" {
+  name         = var.instance
+  machine_type = var.machine_type
+  zone         = var.zone
+
+  boot_disk {
+    initialize_params {
+      image = var.boot_disk_image
+      type  = var.boot_disk_type
+      size  = var.boot_disk_size
+    }
+  }
+
+  network_interface {
+    network    = google_compute_network.networks[var.VPCs[0].name].id
+    subnetwork = google_compute_subnetwork.subnets[0].id
+    access_config {
+
+    }
+  }
+
+  service_account {
+    email  = google_service_account.vm_service_account.email
+    scopes = ["https://www.googleapis.com/auth/logging.write", "https://www.googleapis.com/auth/monitoring.write"]
+  }
+
+  depends_on = [
+    google_sql_database_instance.database_instance,
+    google_sql_database.database,
+    google_sql_user.user,
+    google_service_account.vm_service_account,
+    google_project_iam_binding.logging_admin_binding,
+    google_project_iam_binding.monitoring_metric_writer_binding
+  ]
+
+  metadata_startup_script = <<-SCRIPT
+    #!/bin/bash
+
+    echo "Starting startup script..."
+
+    sudo sh -c  'cat << EOF > /opt/app/.env
+    MYSQL_HOST=${google_sql_database_instance.database_instance.private_ip_address}
+    MYSQL_USER=${google_sql_user.user.name}
+    MYSQL_PASSWORD=${google_sql_user.user.password}
+    MYSQL_DATABASE=${google_sql_database.database.name}
+    EOF'
+
+    echo "Startup script executed successfully!"
+  SCRIPT
 }
 
 resource "google_dns_record_set" "a-record" {
