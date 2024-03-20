@@ -55,3 +55,7 @@ variable "domain" {}
 variable "dns_zone" {}
 variable "record_type" {}
 variable "record_ttl" {}
+
+// Service Account properties
+variable "account_id" {}
+variable "display_name" {}
