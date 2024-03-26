@@ -59,3 +59,12 @@ variable "record_ttl" {}
 // Service Account properties
 variable "account_id" {}
 variable "display_name" {}
+
+// PubSub Topic properties
+variable "topic_name" {}
+variable "message_retention_duration" {}
+
+// ENV variables
+variable "JWT_SECRET_KEY" {}
+variable "MAILGUN_API_KEY" {}
+variable "ROOT_URL" {}

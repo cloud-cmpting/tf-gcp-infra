@@ -5,6 +5,8 @@ provider "google" {
 }
 
 locals {
+  project = var.project
+
   vpc_subnet_info = flatten([
     for vpc in var.VPCs : [
       for subnet in vpc.subnets : {
@@ -226,4 +228,73 @@ resource "google_dns_record_set" "a-record" {
   rrdatas = [google_compute_instance.instance.network_interface[0].access_config[0].nat_ip]
 
   depends_on = [google_compute_instance.instance]
+}
+
+resource "google_pubsub_topic" "topic" {
+  name = var.topic_name
+  message_retention_duration = var.message_retention_duration
+}
+
+resource "google_storage_bucket" "bucket" {
+  name     = "${local.project}-cloud-function-bucket"
+  location = "US"
+  uniform_bucket_level_access = true
+}
+
+resource "google_storage_bucket_object" "object" {
+  name   = "cloud-function.zip"
+  bucket = google_storage_bucket.bucket.name
+  source = "./cloud-function.zip"
+}
+
+resource "google_service_account" "cloud_func_account" {
+  account_id   = "cloud-func-account"
+  display_name = "Cloud Function Account"
+}
+
+resource "google_project_iam_member" "gcs-pubsub-publishing" {
+  project = var.project
+  role    = "roles/pubsub.publisher"
+  member  = "serviceAccount:${google_service_account.cloud_func_account.email}"
+}
+
+resource "google_project_iam_member" "invoking" {
+  project = var.project
+  role    = "roles/run.invoker"
+  member  = "serviceAccount:${google_service_account.cloud_func_account.email}"
+  depends_on = [google_project_iam_member.gcs-pubsub-publishing]
+}
+
+resource "google_cloudfunctions2_function" "function" {
+  name = "pub-sub-cloud-func"
+  location = var.region
+
+  build_config {
+    runtime = "nodejs20"
+    entry_point = "helloPubSub"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.bucket.name
+        object = google_storage_bucket_object.object.name
+      }
+    }
+  }
+
+  service_config {
+    environment_variables = {
+      JWT_SECRET_KEY = var.JWT_SECRET_KEY,
+      MAILGUN_API_KEY = var.MAILGUN_API_KEY,
+      ROOT_URL = var.ROOT_URL
+    }
+    ingress_settings = "ALLOW_INTERNAL_ONLY"
+    all_traffic_on_latest_revision = true
+    service_account_email = google_service_account.cloud_func_account.email
+  }
+
+  event_trigger {
+    trigger_region = var.region
+    event_type = "google.cloud.pubsub.topic.v1.messagePublished"
+    pubsub_topic = google_pubsub_topic.topic.id
+    retry_policy = "RETRY_POLICY_RETRY"
+  }
 }
