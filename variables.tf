@@ -65,6 +65,5 @@ variable "topic_name" {}
 variable "message_retention_duration" {}
 
 // ENV variables
-variable "JWT_SECRET_KEY" {}
 variable "MAILGUN_API_KEY" {}
 variable "ROOT_URL" {}

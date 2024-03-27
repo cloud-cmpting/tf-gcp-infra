@@ -147,6 +147,13 @@ resource "google_sql_user" "user" {
   password = random_password.password.result
 }
 
+resource "google_vpc_access_connector" "connector" {
+  name    = "vpc-connector"
+  network = google_compute_network.networks[var.VPCs[0].name].id
+  region  = var.region
+  ip_cidr_range = "10.8.0.0/28"
+}
+
 resource "google_service_account" "vm_service_account" {
   account_id   = var.account_id
   display_name = var.display_name
@@ -233,7 +240,6 @@ resource "google_compute_instance" "instance" {
     MYSQL_USER=${google_sql_user.user.name}
     MYSQL_PASSWORD=${google_sql_user.user.password}
     MYSQL_DATABASE=${google_sql_database.database.name}
-    JWT_SECRET_KEY=${var.JWT_SECRET_KEY}
     EOF'
 
     echo "Startup script executed successfully!"
@@ -285,13 +291,17 @@ resource "google_cloudfunctions2_function" "function" {
 
   service_config {
     environment_variables = {
-      JWT_SECRET_KEY = var.JWT_SECRET_KEY,
       MAILGUN_API_KEY = var.MAILGUN_API_KEY,
       ROOT_URL = var.ROOT_URL
+      MYSQL_HOST = google_sql_database_instance.database_instance.private_ip_address
+      MYSQL_USER = google_sql_user.user.name
+      MYSQL_PASSWORD = google_sql_user.user.password
+      MYSQL_DATABASE = google_sql_database.database.name
     }
+
     ingress_settings = "ALLOW_INTERNAL_ONLY"
-    all_traffic_on_latest_revision = true
     service_account_email = google_service_account.vm_service_account.email
+    vpc_connector = google_vpc_access_connector.connector.id
   }
 
   event_trigger {
