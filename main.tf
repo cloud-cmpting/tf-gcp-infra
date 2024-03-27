@@ -168,6 +168,22 @@ resource "google_project_iam_binding" "monitoring_metric_writer_binding" {
   ]
 }
 
+resource "google_project_iam_binding" "gcs-pubsub-publishing" {
+  project = var.project
+  role    = "roles/pubsub.publisher"
+  members = [
+    "serviceAccount:${google_service_account.vm_service_account.email}",
+  ]
+}
+
+resource "google_project_iam_binding" "invoking" {
+  project = var.project
+  role    = "roles/run.invoker"
+  members = [
+    "serviceAccount:${google_service_account.vm_service_account.email}",
+  ]
+}
+
 resource "google_compute_instance" "instance" {
   name         = var.instance
   machine_type = var.machine_type
@@ -191,7 +207,11 @@ resource "google_compute_instance" "instance" {
 
   service_account {
     email  = google_service_account.vm_service_account.email
-    scopes = ["https://www.googleapis.com/auth/logging.write", "https://www.googleapis.com/auth/monitoring.write"]
+    scopes = [
+      "https://www.googleapis.com/auth/logging.write", 
+      "https://www.googleapis.com/auth/monitoring.write",
+      "https://www.googleapis.com/auth/pubsub"
+    ]
   }
 
   depends_on = [
@@ -213,6 +233,7 @@ resource "google_compute_instance" "instance" {
     MYSQL_USER=${google_sql_user.user.name}
     MYSQL_PASSWORD=${google_sql_user.user.password}
     MYSQL_DATABASE=${google_sql_database.database.name}
+    JWT_SECRET_KEY=${var.JWT_SECRET_KEY}
     EOF'
 
     echo "Startup script executed successfully!"
@@ -247,24 +268,6 @@ resource "google_storage_bucket_object" "object" {
   source = "./cloud-function.zip"
 }
 
-resource "google_service_account" "cloud_func_account" {
-  account_id   = "cloud-func-account"
-  display_name = "Cloud Function Account"
-}
-
-resource "google_project_iam_member" "gcs-pubsub-publishing" {
-  project = var.project
-  role    = "roles/pubsub.publisher"
-  member  = "serviceAccount:${google_service_account.cloud_func_account.email}"
-}
-
-resource "google_project_iam_member" "invoking" {
-  project = var.project
-  role    = "roles/run.invoker"
-  member  = "serviceAccount:${google_service_account.cloud_func_account.email}"
-  depends_on = [google_project_iam_member.gcs-pubsub-publishing]
-}
-
 resource "google_cloudfunctions2_function" "function" {
   name = "pub-sub-cloud-func"
   location = var.region
@@ -288,7 +291,7 @@ resource "google_cloudfunctions2_function" "function" {
     }
     ingress_settings = "ALLOW_INTERNAL_ONLY"
     all_traffic_on_latest_revision = true
-    service_account_email = google_service_account.cloud_func_account.email
+    service_account_email = google_service_account.vm_service_account.email
   }
 
   event_trigger {
