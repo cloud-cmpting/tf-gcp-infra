@@ -148,9 +148,9 @@ resource "google_sql_user" "user" {
 }
 
 resource "google_vpc_access_connector" "connector" {
-  name    = "vpc-connector"
-  network = google_compute_network.networks[var.VPCs[0].name].id
-  region  = var.region
+  name          = "vpc-connector"
+  network       = google_compute_network.networks[var.VPCs[0].name].id
+  region        = var.region
   ip_cidr_range = "10.8.0.0/28"
 }
 
@@ -213,9 +213,9 @@ resource "google_compute_instance" "instance" {
   }
 
   service_account {
-    email  = google_service_account.vm_service_account.email
+    email = google_service_account.vm_service_account.email
     scopes = [
-      "https://www.googleapis.com/auth/logging.write", 
+      "https://www.googleapis.com/auth/logging.write",
       "https://www.googleapis.com/auth/monitoring.write",
       "https://www.googleapis.com/auth/pubsub"
     ]
@@ -258,13 +258,13 @@ resource "google_dns_record_set" "a-record" {
 }
 
 resource "google_pubsub_topic" "topic" {
-  name = var.topic_name
+  name                       = var.topic_name
   message_retention_duration = var.message_retention_duration
 }
 
 resource "google_storage_bucket" "bucket" {
-  name     = "${local.project}-cloud-function-bucket"
-  location = "US"
+  name                        = "${local.project}-cloud-function-bucket"
+  location                    = "US"
   uniform_bucket_level_access = true
 }
 
@@ -275,11 +275,11 @@ resource "google_storage_bucket_object" "object" {
 }
 
 resource "google_cloudfunctions2_function" "function" {
-  name = "pub-sub-cloud-func"
+  name     = "pub-sub-cloud-func"
   location = var.region
 
   build_config {
-    runtime = "nodejs20"
+    runtime     = "nodejs20"
     entry_point = "helloPubSub"
     source {
       storage_source {
@@ -292,22 +292,22 @@ resource "google_cloudfunctions2_function" "function" {
   service_config {
     environment_variables = {
       MAILGUN_API_KEY = var.MAILGUN_API_KEY,
-      ROOT_URL = var.ROOT_URL
-      MYSQL_HOST = google_sql_database_instance.database_instance.private_ip_address
-      MYSQL_USER = google_sql_user.user.name
-      MYSQL_PASSWORD = google_sql_user.user.password
-      MYSQL_DATABASE = google_sql_database.database.name
+      ROOT_URL        = var.ROOT_URL
+      MYSQL_HOST      = google_sql_database_instance.database_instance.private_ip_address
+      MYSQL_USER      = google_sql_user.user.name
+      MYSQL_PASSWORD  = google_sql_user.user.password
+      MYSQL_DATABASE  = google_sql_database.database.name
     }
 
-    ingress_settings = "ALLOW_INTERNAL_ONLY"
+    ingress_settings      = "ALLOW_INTERNAL_ONLY"
     service_account_email = google_service_account.vm_service_account.email
-    vpc_connector = google_vpc_access_connector.connector.id
+    vpc_connector         = google_vpc_access_connector.connector.id
   }
 
   event_trigger {
     trigger_region = var.region
-    event_type = "google.cloud.pubsub.topic.v1.messagePublished"
-    pubsub_topic = google_pubsub_topic.topic.id
-    retry_policy = "RETRY_POLICY_RETRY"
+    event_type     = "google.cloud.pubsub.topic.v1.messagePublished"
+    pubsub_topic   = google_pubsub_topic.topic.id
+    retry_policy   = "RETRY_POLICY_RETRY"
   }
 }
