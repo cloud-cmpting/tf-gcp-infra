@@ -275,7 +275,7 @@ resource "google_storage_bucket_object" "object" {
 }
 
 resource "google_cloudfunctions2_function" "function" {
-  name     = "pub-sub-cloud-func"
+  name     = "pub-sub-cloud"
   location = var.region
 
   build_config {
