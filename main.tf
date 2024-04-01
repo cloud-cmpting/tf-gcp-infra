@@ -183,11 +183,16 @@ resource "google_project_iam_binding" "gcs-pubsub-publishing" {
   ]
 }
 
+resource "google_service_account" "cloud_func_service_account" {
+  account_id   = "cloud-function-service-account"
+  display_name = "Cloud Function Service Account"
+}
+
 resource "google_project_iam_binding" "invoking" {
   project = var.project
-  role    = "roles/run.invoker"
+  role    = "roles/cloudfunctions.invoker"
   members = [
-    "serviceAccount:${google_service_account.vm_service_account.email}",
+    "serviceAccount:${google_service_account.cloud_func_service_account.email}",
   ]
 }
 
@@ -300,7 +305,7 @@ resource "google_cloudfunctions2_function" "function" {
     }
 
     ingress_settings      = "ALLOW_INTERNAL_ONLY"
-    service_account_email = google_service_account.vm_service_account.email
+    service_account_email = google_service_account.cloud_func_service_account.email
     vpc_connector         = google_vpc_access_connector.connector.id
   }
 
