@@ -102,13 +102,56 @@ resource "random_id" "db_name_suffix" {
   byte_length = 4
 }
 
+resource "google_kms_key_ring" "key_ring" {
+  name     = "my-key-ring4"
+  location = var.region
+}
+
+resource "google_kms_crypto_key" "vm_disk_key" {
+  name            = "vm-disk-key"
+  key_ring        = google_kms_key_ring.key_ring.id
+  rotation_period = "2592000s" # 30 days
+}
+
+resource "google_kms_crypto_key" "cloudsql_key" {
+  name            = "cloudsql-key"
+  key_ring        = google_kms_key_ring.key_ring.id
+  rotation_period = "2592000s" # 30 days
+}
+
+resource "google_kms_crypto_key" "storage_bucket_key" {
+  name            = "storage-bucket-key"
+  key_ring        = google_kms_key_ring.key_ring.id
+  rotation_period = "2592000s" # 30 days
+}
+
+resource "google_project_service_identity" "gcp_sa_cloud_sql" {
+  project = var.project
+  provider = google-beta
+  service  = "sqladmin.googleapis.com"
+}
+
+resource "google_kms_crypto_key_iam_binding" "crypto_key" {
+  provider      = google-beta
+  crypto_key_id = google_kms_crypto_key.cloudsql_key.id
+  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+
+  members = [
+    "serviceAccount:${google_project_service_identity.gcp_sa_cloud_sql.email}",
+  ]
+}
+
 resource "google_sql_database_instance" "database_instance" {
   name                = "private-instance-${random_id.db_name_suffix.hex}"
   database_version    = var.database_version
   region              = var.region
   deletion_protection = var.db_instance_deletion_protection
+  encryption_key_name = google_kms_crypto_key.cloudsql_key.id
 
-  depends_on = [google_service_networking_connection.private_vpc_connection]
+  depends_on = [
+    google_service_networking_connection.private_vpc_connection,
+    google_kms_crypto_key_iam_binding.crypto_key
+  ]
 
   settings {
     tier              = var.db_instance_machine_type
@@ -182,6 +225,12 @@ resource "google_project_iam_binding" "gcs-pubsub-publishing" {
   ]
 }
 
+resource "google_kms_crypto_key_iam_binding" "binding_vm_disk_key" {
+  crypto_key_id = google_kms_crypto_key.vm_disk_key.id
+  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+  members = ["serviceAccount:service-979128074001@compute-system.iam.gserviceaccount.com"]
+}
+
 resource "google_service_account" "cloud_func_service_account" {
   account_id   = "cloud-function-service-account"
   display_name = "Cloud Function Service Account"
@@ -206,6 +255,10 @@ resource "google_compute_region_instance_template" "instance_template" {
     boot         = true
     disk_type    = var.boot_disk_type
     disk_size_gb = var.boot_disk_size
+
+    disk_encryption_key {
+      kms_key_self_link = google_kms_crypto_key.vm_disk_key.id
+    }
   }
 
   network_interface {
@@ -217,8 +270,18 @@ resource "google_compute_region_instance_template" "instance_template" {
 
   service_account {
     email  = google_service_account.vm_service_account.email
-    scopes = ["https://www.googleapis.com/auth/logging.write", "https://www.googleapis.com/auth/monitoring.write", "https://www.googleapis.com/auth/pubsub"]
+    scopes = [
+      "https://www.googleapis.com/auth/logging.write", 
+      "https://www.googleapis.com/auth/monitoring.write", 
+      "https://www.googleapis.com/auth/pubsub"
+    ]
   }
+
+  depends_on = [ 
+    google_project_iam_binding.logging_admin_binding,
+    google_project_iam_binding.monitoring_metric_writer_binding,
+    google_project_iam_binding.gcs-pubsub-publishing
+  ]
 
   metadata_startup_script = <<-SCRIPT
     #!/bin/bash
@@ -340,16 +403,36 @@ resource "google_pubsub_topic" "topic" {
   message_retention_duration = var.message_retention_duration
 }
 
+data "google_storage_project_service_account" "gcs_account" {
+}
+
+resource "google_kms_crypto_key_iam_binding" "binding" {
+  crypto_key_id = google_kms_crypto_key.storage_bucket_key.id
+  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+
+  members = ["serviceAccount:${data.google_storage_project_service_account.gcs_account.email_address}"]
+}
+
 resource "google_storage_bucket" "bucket" {
   name                        = "${local.project}-cloud-function-bucket"
-  location                    = "US"
+  location                    = var.region
   uniform_bucket_level_access = true
+
+  encryption {
+    default_kms_key_name = google_kms_crypto_key.storage_bucket_key.id
+  }
+
+  depends_on = [google_kms_crypto_key_iam_binding.binding]
 }
 
 resource "google_storage_bucket_object" "object" {
   name   = "cloud-function.zip"
   bucket = google_storage_bucket.bucket.name
   source = "./cloud-function.zip"
+
+  kms_key_name = google_kms_crypto_key.storage_bucket_key.id
+
+  depends_on = [google_storage_bucket.bucket]
 }
 
 resource "google_cloudfunctions2_function" "function" {
