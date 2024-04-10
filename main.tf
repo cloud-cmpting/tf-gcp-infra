@@ -472,3 +472,68 @@ resource "google_cloudfunctions2_function" "function" {
     retry_policy   = "RETRY_POLICY_RETRY"
   }
 }
+
+resource "google_secret_manager_secret" "mysql_host_secret" {
+  secret_id = "mysql-host-secret"
+
+  replication {
+    user_managed {
+      replicas {
+        location = "us-east1"
+      }
+    }
+  }
+}
+
+resource "google_secret_manager_secret_version" "mysql_host_secret_version" {
+  secret = google_secret_manager_secret.mysql_host_secret.name
+  secret_data = google_sql_database_instance.database_instance.private_ip_address
+}
+
+resource "google_secret_manager_secret" "mysql_password_secret" {
+  secret_id = "mysql-password-secret"
+  replication {
+    user_managed {
+      replicas {
+        location = "us-east1"
+      }
+    }
+  }
+}
+
+resource "google_secret_manager_secret_version" "mysql_password_secret_version" {
+  secret = google_secret_manager_secret.mysql_password_secret.name
+  secret_data = google_sql_user.user.password
+}
+
+resource "google_secret_manager_secret" "vm_disk_key_secret" {
+  secret_id = "vm-disk-key-secret"
+  replication {
+    user_managed {
+      replicas {
+        location = "us-east1"
+      }
+    }
+  }
+}
+
+resource "google_secret_manager_secret_version" "vm_disk_key_secret_version" {
+  secret = google_secret_manager_secret.vm_disk_key_secret.name
+  secret_data = google_kms_crypto_key.vm_disk_key.id
+}
+
+resource "google_project_iam_binding" "secret_manager_binding" {
+  project = var.project
+  role    = "roles/secretmanager.secretAccessor"
+  members = [
+    "serviceAccount:dev-packer@cloud--dev.iam.gserviceaccount.com",
+  ]
+}
+
+resource "google_project_iam_binding" "network_admin_binding" {
+  project = var.project
+  role    = "roles/compute.networkAdmin"
+  members = [
+    "serviceAccount:dev-packer@cloud--dev.iam.gserviceaccount.com",
+  ]
+}
