@@ -103,7 +103,7 @@ resource "random_id" "db_name_suffix" {
 }
 
 resource "google_kms_key_ring" "key_ring" {
-  name     = "my-key-ring4"
+  name     = "my-key-ring5"
   location = var.region
 }
 
@@ -126,7 +126,7 @@ resource "google_kms_crypto_key" "storage_bucket_key" {
 }
 
 resource "google_project_service_identity" "gcp_sa_cloud_sql" {
-  project = var.project
+  project  = var.project
   provider = google-beta
   service  = "sqladmin.googleapis.com"
 }
@@ -228,7 +228,7 @@ resource "google_project_iam_binding" "gcs-pubsub-publishing" {
 resource "google_kms_crypto_key_iam_binding" "binding_vm_disk_key" {
   crypto_key_id = google_kms_crypto_key.vm_disk_key.id
   role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
-  members = ["serviceAccount:service-979128074001@compute-system.iam.gserviceaccount.com"]
+  members       = ["serviceAccount:service-979128074001@compute-system.iam.gserviceaccount.com"]
 }
 
 resource "google_service_account" "cloud_func_service_account" {
@@ -269,15 +269,15 @@ resource "google_compute_region_instance_template" "instance_template" {
   }
 
   service_account {
-    email  = google_service_account.vm_service_account.email
+    email = google_service_account.vm_service_account.email
     scopes = [
-      "https://www.googleapis.com/auth/logging.write", 
-      "https://www.googleapis.com/auth/monitoring.write", 
+      "https://www.googleapis.com/auth/logging.write",
+      "https://www.googleapis.com/auth/monitoring.write",
       "https://www.googleapis.com/auth/pubsub"
     ]
   }
 
-  depends_on = [ 
+  depends_on = [
     google_project_iam_binding.logging_admin_binding,
     google_project_iam_binding.monitoring_metric_writer_binding,
     google_project_iam_binding.gcs-pubsub-publishing
