@@ -486,7 +486,7 @@ resource "google_secret_manager_secret" "mysql_host_secret" {
 }
 
 resource "google_secret_manager_secret_version" "mysql_host_secret_version" {
-  secret = google_secret_manager_secret.mysql_host_secret.name
+  secret      = google_secret_manager_secret.mysql_host_secret.name
   secret_data = google_sql_database_instance.database_instance.private_ip_address
 }
 
@@ -502,7 +502,7 @@ resource "google_secret_manager_secret" "mysql_password_secret" {
 }
 
 resource "google_secret_manager_secret_version" "mysql_password_secret_version" {
-  secret = google_secret_manager_secret.mysql_password_secret.name
+  secret      = google_secret_manager_secret.mysql_password_secret.name
   secret_data = google_sql_user.user.password
 }
 
@@ -518,7 +518,7 @@ resource "google_secret_manager_secret" "vm_disk_key_secret" {
 }
 
 resource "google_secret_manager_secret_version" "vm_disk_key_secret_version" {
-  secret = google_secret_manager_secret.vm_disk_key_secret.name
+  secret      = google_secret_manager_secret.vm_disk_key_secret.name
   secret_data = google_kms_crypto_key.vm_disk_key.id
 }
 
